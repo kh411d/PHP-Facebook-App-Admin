@@ -81,14 +81,38 @@ Class Facebook_TestAccount {
     return $reqs;
    }
    
+   public function createManyConnected($maxUser,$parameter = array()){
+	$parameter['installed'] = TRUE;
+	$reqs = $this->createMany($maxUser,$parameter);
+    $req_connected = $this->recursiveConnect($reqs);
+    return $req_connected;
+   }
+   
+   public function recursiveConnect( array $stack, $stack_connected = array()){
+    $pin_item = array_shift($stack);
+	foreach($stack as $item){
+	 if($request = $this->connect($pin_item['id'],$item['id'],$pin_item['access_token'],$item['access_token']))
+	 {
+	   $stack_connected[] = $request;
+	 }
+	}
+	if(count($stack) <= 1) return $stack_connected;
+	$this->recursiveConnect($stack,$stack_connected);
+   }
+   
    public function connect($uid1,$uid2,$uat1,$uat2 = NULL){
+	$request = array();	
 		try{
-			$request = $this->request('/' . $uid1 . '/friends/' . $uid2, 'POST',
+			$request1 = $this->request('/' . $uid1 . '/friends/' . $uid2, 'POST',
 			                          array('access_token'=>$uat1));
+			$request[$uid1."_".$uid2][] = $request1;						  
 			if($uat2){
-				$request = $this->request('/' . $uid2 . '/friends/' . $uid1, 'POST',
+				$request2 = $this->request('/' . $uid2 . '/friends/' . $uid1, 'POST',
 										  array('access_token'=>$uat2));
-			}			
+				$request[$uid1."_".$uid2][] = $request2;						  
+			}
+			
+			
 			} catch (Exception $e){ $request = false; }
 	return $request;	
    }
