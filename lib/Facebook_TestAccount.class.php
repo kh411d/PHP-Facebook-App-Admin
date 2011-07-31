@@ -12,7 +12,7 @@ Class Facebook_TestAccount {
 		$this->app_access_token = $app_access_token;
 	 }else{
 		if(!$this->app_access_token = $this->getAppAccessToken()){
-		  die("Could Not Generate Access Token for this App, Please Provide by yourself");
+		  die("Could Not Generate Access Token");
 		}
      }
    }
@@ -22,11 +22,14 @@ Class Facebook_TestAccount {
 						'client_secret' => $this->getAppSecret(),
 						'grant_type'    => 'client_credentials');
 	try{
-			$request = $this->request('/oauth/access_token', 'POST',$parameter);
+			$request = $this->request('/oauth/access_token', 'GET',$parameter,true,false);
+			parse_str($request);
 		} catch (Exception $e){ die($e); }
-	$request = $request ? str_replace('access_token=','',$request) : NULL;	
+		
+	$request = $request ? $access_token : NULL;	
 	return $request;						 
    }
+      
    
    public function getAppId() {
      return $this->AppId;
@@ -45,18 +48,13 @@ Class Facebook_TestAccount {
    
    public function create($parameter = null){
     if(!is_array($parameter))$parameter = array();
-
-    try{
-	    if($parameter['name']){ $next_name = $parameter['name']; }else{
-	       $users = $this->access();
-		   $next_name = substr(md5(time()),4,3)." user".(count($users['data'])+1);}
 		   
-		   	$default_parameter = array('installed'=>TRUE,
-										'name'=>$next_name,
+		   	$default_parameter = array('installed'=>FALSE,
+										'name'=>substr(md5(time()),4,4)." User",
 										'permissions' => 'publish_stream');
 			$parameter = array_merge($default_parameter,$parameter);	
 			$parameter['access_token'] = $this->app_access_token;
-		   
+    try{   
 			$request = $this->request('/' . $this->getAppId() . '/accounts/test-users', 'POST',$parameter);
 			} catch (Exception $e){ $request = $e; }
     return $request;
@@ -66,17 +64,10 @@ Class Facebook_TestAccount {
     $users = $this->access();
 	$total_user = count($users['data']);
     $reqs = array();	
-	$default_parameter = array('installed'=>TRUE,'permissions' => 'publish_stream');
-	$parameter = array_merge($default_parameter,$parameter);	
-	$parameter['access_token'] = $this->app_access_token;
 	
 	for($i=1;$i<=$maxUser;$i++){
-	  $next_name = substr(md5(time()),4,3)." user".($total_user+$i);	
-		try{
-			$parameter['name'] = $next_name;
-			$request = $this->request('/' . $this->getAppId() . '/accounts/test-users', 'POST',$parameter);
-			$reqs[] = $request;
-			} catch (Exception $e){ $request = $e; }
+	  $next_name = substr(md5(time()),4,4)." User".($total_user+$i);
+	  $this->create(array('name'=>$next_name));
 	}		
     return $reqs;
    }
@@ -105,11 +96,11 @@ Class Facebook_TestAccount {
 		try{
 			$request1 = $this->request('/' . $uid1 . '/friends/' . $uid2, 'POST',
 			                          array('access_token'=>$uat1));
-			$request[$uid1."_".$uid2][] = $request1;						  
+			$request[$uid1."_".$uid2][] = $request1 ? 'OK' : 'FAILED';						  
 			if($uat2){
 				$request2 = $this->request('/' . $uid2 . '/friends/' . $uid1, 'POST',
 										  array('access_token'=>$uat2));
-				$request[$uid1."_".$uid2][] = $request2;						  
+				$request[$uid1."_".$uid2][] = $request2 ? 'OK' : 'FAILED';						  
 			}
 			
 			
@@ -175,7 +166,7 @@ Class Facebook_TestAccount {
     return $request;		
    }
    
-   protected function request($path,$method = "POST",$args = array(),$ssl = true){
+   protected function request($path,$method = "POST",$args = array(),$ssl = true,$json_decode = true){
    $ch = curl_init();
    $method = strtoupper($method);
    $url = $ssl ? "https://".$this->domain.$path : "http://".$this->domain.$path;
@@ -189,24 +180,26 @@ Class Facebook_TestAccount {
         curl_setopt($ch, CURLOPT_HTTPGET, true);
 	}
 	 
-    if($args)
+    if($args && $method == 'POST')
 	 curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($args, null, '&'));
-	
+	elseif($args && $method == 'GET')
+     $url .= '?'.http_build_query($args, null, '&'); 	
+
 	curl_setopt($ch, CURLOPT_HEADER, false);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-   
+   	
 	curl_setopt($ch, CURLOPT_URL, $url);
 	
 	$result = curl_exec($ch);
 	if ($result === false) {
       curl_close($ch);
-      throw $e;
+	  return curl_error($ch); 
     }
 	curl_close($ch);
 	
-	return json_decode($result,true);
+	return $json_decode ? json_decode($result,true) : $result;
    }
    
 }

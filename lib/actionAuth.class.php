@@ -1,0 +1,1 @@
+<?phpClass actionAuth {	function __construct(){		}	 }
