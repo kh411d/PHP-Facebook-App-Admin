@@ -128,6 +128,26 @@ Class Facebook_TestAccount {
 	return $request;	
    }
    
+   public function revokeAuth($uid){
+    try{
+			$request = $this->request('/' . $uid . '/permissions', 'POST' ,
+						array('method'=>'delete','access_token'=>$this->app_access_token));
+			} catch (Exception $e){ $request = false; }
+	return $request;	
+   }
+   
+   public function revokeAuthAll($uid){
+    $request = $this->access();
+	 $ret = null;
+	 foreach($request['data'] as $value){
+		if($deleted = $this->revokeAuth($value['id'])){
+		  $ret[] = $value['id'];
+		}
+	 }
+	 return $ret;
+   }
+
+   
    public function delete($uid){
     try{
 			$request = $this->request('/' . $uid, 'POST' ,
